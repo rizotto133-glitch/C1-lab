@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
     <style>
-        /* Стили полностью сохранены из предыдущей версии (я их не меняю, чтобы не перегружать) */
+        /* Стили полностью сохранены из предыдущей версии */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --y1:#f5d742; --y2:#f9e45b; --l1:#c4d73a; --l2:#d4e157; --ink:#1e1c10; --ink-mid:#4a4728; --ink-soft:#7a7550; --bg:#fdfcf4; --card:#ffffff; --border:#e8e2b8; --row-odd:#faf7e4; --row-even:#f2f7d8; --radius:18px; --radius-sm:10px; --shadow:0 4px 24px rgba(100,95,20,0.09); --transition:0.2s ease; }
         html { scroll-behavior:smooth; }
@@ -54,7 +54,7 @@
         .stats-row .badge.good { background:var(--row-even); border-color:var(--l1); }
         .cloze-question { background:var(--row-odd); border-radius:var(--radius-sm); padding:16px 18px; margin-bottom:12px; border:1px solid var(--border); }
         .cloze-question .stem { font-size:1.05rem; font-weight:500; line-height:1.6; margin-bottom:14px; }
-        .cloze-question .stem .blank { display:inline-block; min-width:100px; border-bottom:2px dashed var(--y1); color:var(--ink); font-weight:700; padding:0 4px; }
+        .cloze-question .stem .hint-highlight { background:var(--y2); padding:0 6px; border-radius:4px; font-weight:700; color:var(--ink); }
         .cloze-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .cloze-options .opt { padding:8px 12px; border-radius:30px; border:1px solid var(--border); background:var(--card); cursor:pointer; font-weight:500; transition:background .15s,border-color .15s; text-align:center; font-size:0.95rem; }
         .cloze-options .opt:hover { background:var(--row-even); }
@@ -247,7 +247,7 @@
     <script>
         // =====================================================================
         // ПОЛНЫЙ JS – Загрузка паков, Anki-алгоритм, три режима + статистика
-        // Теперь с сохранением пака в localStorage
+        // ОСОБЕННОСТЬ: в Spaced Repetition вместо ____ показывается русский перевод
         // =====================================================================
         (function() {
             'use strict';
@@ -303,9 +303,9 @@
             const activeWordsContainer = $('activeWordsContainer');
 
             // ─── State ──────────────────────────────────────────────────
-            let currentPack = null; // { name, words: [...] }
+            let currentPack = null;
             let currentPackKey = null;
-            let ankiData = {}; // { word: { interval, easeFactor, lapses, nextReview } }
+            let ankiData = {};
 
             let spacedSession = {
                 words: [],
@@ -356,11 +356,9 @@
             }
 
             // ─── localStorage ──────────────────────────────────────────
-            // Ключ для Anki-прогресса
             function ankiStorageKey(packName) {
                 return 'anki_' + packName;
             }
-            // Ключ для сохранения самого пака (слов)
             function packStorageKey(packName) {
                 return 'pack_' + packName;
             }
@@ -379,7 +377,6 @@
                 } catch (_) { /* ignore */ }
             }
 
-            // Сохраняем весь пак (слова) в localStorage
             function savePackToStorage(packName, packData) {
                 try {
                     localStorage.setItem(packStorageKey(packName), JSON.stringify(packData));
@@ -397,19 +394,6 @@
             function deletePackFromStorage(packName) {
                 localStorage.removeItem(ankiStorageKey(packName));
                 localStorage.removeItem(packStorageKey(packName));
-            }
-
-            // ─── Инициализация Anki для слова ──────────────────────────
-            function initAnkiForWord(word) {
-                if (!ankiData[word]) {
-                    ankiData[word] = {
-                        interval: 0,
-                        easeFactor: 2.5,
-                        lapses: 0,
-                        nextReview: getToday()
-                    };
-                }
-                return ankiData[word];
             }
 
             // ─── Anki-алгоритм ──────────────────────────────────────────
@@ -440,7 +424,7 @@
                 return entry;
             }
 
-            // ─── Загрузка пака (из JSON-файла) ──────────────────────────
+            // ─── Загрузка пака ──────────────────────────────────────────
             function loadPack(fileName, data) {
                 if (!data || !Array.isArray(data) || data.length === 0) {
                     showToast('❌ Невалидный JSON. Массив пуст.', 'error');
@@ -459,10 +443,8 @@
                 currentPack = { name: key, words: data };
                 currentPackKey = key;
 
-                // Сохраняем слова в localStorage
                 savePackToStorage(key, { name: key, words: data });
 
-                // Загружаем Anki-прогресс
                 ankiData = loadAnkiData(key);
                 for (const w of data) {
                     if (!ankiData[w.word]) {
@@ -486,14 +468,13 @@
                 return true;
             }
 
-            // ─── Восстановление пака из localStorage (при загрузке страницы) ───
+            // ─── Восстановление пака из localStorage ────────────────────
             function restorePackFromStorage() {
-                // Ищем первый сохранённый пак
                 let savedPackKey = null;
                 for (let i = 0; i < localStorage.length; i++) {
                     const key = localStorage.key(i);
                     if (key && key.startsWith('pack_')) {
-                        savedPackKey = key.slice(5); // убираем 'pack_'
+                        savedPackKey = key.slice(5);
                         break;
                     }
                 }
@@ -515,7 +496,6 @@
                         };
                     }
                 }
-                // Не сохраняем заново, просто используем
 
                 heroMeta.innerHTML = '📁 <strong>' + savedPackKey + '</strong> · ' + currentPack.words.length + ' слов (восстановлен)';
                 prepareSessions();
@@ -549,7 +529,6 @@
                 updateBadges();
             }
 
-            // ─── Обновление бейджей ────────────────────────────────────
             function updateBadges() {
                 if (!currentPack) {
                     spacedBadge.textContent = '0 карточек';
@@ -563,7 +542,9 @@
                 statsBadge.textContent = total + ' слов';
             }
 
-            // ─── РЕНДЕР Spaced Repetition Practice ────────────────────
+            // ════════════════════════════════════════════════════════════════
+            // ГЛАВНОЕ ИЗМЕНЕНИЕ: ВМЕСТО ____ ПОКАЗЫВАЕМ РУССКИЙ ПЕРЕВОД
+            // ════════════════════════════════════════════════════════════════
             function renderSpaced() {
                 if (!currentPack || !currentPack.words.length) {
                     spacedContent.innerHTML = `
@@ -621,12 +602,17 @@
                 }
                 options = shuffleArray(options);
 
-                const contextWithBlank = word.context.replace(new RegExp(word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-                    'gi'), '____');
+                // ════════════════════════════════════════════
+                // ГЛАВНОЕ ИЗМЕНЕНИЕ: вместо ____ подставляем русский перевод с жёлтым фоном
+                // ════════════════════════════════════════════
+                const contextWithHint = word.context.replace(
+                    new RegExp(word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+                    `<span class="hint-highlight">${word.translation}</span>`
+                );
 
                 let html = `
                     <div class="cloze-question">
-                        <div class="stem">${contextWithBlank}</div>
+                        <div class="stem">${contextWithHint}</div>
                         <div class="cloze-options" id="clozeOptions">
                 `;
                 options.forEach((opt, i) => {
@@ -640,7 +626,7 @@
                     </div>
                     <div style="margin-top:8px;font-size:0.9rem;color:var(--ink-soft);">
                         <span>${idx+1} / ${words.length}</span>
-                        <span style="margin-left:16px;">💡 Подсказка: ${word.translation}</span>
+                        <span style="margin-left:16px;">💡 Выберите правильный английский вариант</span>
                     </div>
                 `;
 
@@ -769,7 +755,7 @@
                         'gi'), match => `<span class="hi">${match}</span>`);
                     contextHtml = `<div class="context-ru">${highlightedRu}</div>`;
                 } else {
-                    contextHtml = `<div class="context-ru" style="color:var(--ink-soft);font-style:italic;">(русский контекст не указан, используйте английский)</div>`;
+                    contextHtml = `<div class="context-ru" style="color:var(--ink-soft);font-style:italic;">(русский контекст не указан)</div>`;
                 }
 
                 const id = 'active_' + idx;
@@ -1023,7 +1009,7 @@
                     renderStats();
                     updateBadges();
                 }
-                console.log('🧠 Vocab LAB загружен. Если пак был сохранён, он восстановлен.');
+                console.log('🧠 Vocab LAB загружен. В Spaced Repetition вместо ____ показывается русский перевод.');
             }
 
             init();
